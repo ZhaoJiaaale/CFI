@@ -11,8 +11,8 @@ def add_section(elf_path):
 
     new_section = lief.ELF.Section()
     new_section.name = ".trampoline"
-    # 00040011
-    new_section.content = [0x00, 0x04, 0x00, 0x11]
+    # fd7bbea9 c0035fd6 
+    new_section.content = [0xfd, 0x7b, 0xbe, 0xa9, 0xc0, 0x03, 0x5f, 0xd6]
     new_section.type = lief.ELF.SECTION_TYPES.PROGBITS
     new_section.flags = lief.ELF.SECTION_FLAGS.ALLOC | lief.ELF.SECTION_FLAGS.EXECINSTR
     new_section.alignment = 0x40
@@ -49,17 +49,16 @@ def disassemble(code, disassemble_path):
     with open(disassemble_path, "w+") as f:
         f.write(disassembled_code)
 
-def assemble(asm_code, assemble_path):
+def assemble(asm_code):
     ks = Ks(KS_ARCH_ARM64, KS_MODE_LITTLE_ENDIAN)
     encoding, count = ks.asm(asm_code)
 
-    formatted_text = format_code(bytes(encoding))
+    # formatted_text = format_code(bytes(encoding))
     
-    with open(assemble_path, "w+") as f:
-        f.write(formatted_text)
+    # with open(assemble_path, "w+") as f:
+    #     f.write(formatted_text)
 
     return bytes(encoding)
-    # return bytes(encoding), count
 
 def binary_rewrite(elf_path):
     elf_name = os.path.basename(elf_path).split(".")[0]
@@ -109,41 +108,35 @@ def binary_rewrite(elf_path):
                 Append context to Trampoline
     """
     # ---------------------------------------------------------------------------------------------------------------------- #
-    
-    # Transform hex string to bytes list: e.g. [[0x1f,0x20,0x03,0xd5], [0x1d,0x00,0x80,0xd2], ...]
+    modified_index_instrs = {}  # index: modified instr
     instrs = []
     with open(disassemble_path, "r") as disassemble_f:
         instrs = disassemble_f.readlines()
     
-    modified_instrs = []
     for i in range(len(instrs)):
         if i > 0:
             if instrs[i] == 'stp x29, x30, [sp, #-0x20]!\n' and instrs[i-1] == "ret \n":
-                modified_instrs.append("bl #0x401a50\n")
-            else:
-                modified_instrs.append(instrs[i])
-        else:
-            modified_instrs.append(instrs[i])
-    modified_disassemble_path = "./Disassemble/modified_" + elf_name + ".s"
-    with open(modified_disassemble_path, 'w+') as modified_disassemble_f:
-        modified_disassemble_f.writelines(modified_instrs)
-    # ---------------------------------------------------------------------------------------------------------------------- #
-    
-    """
-        Assemble the Modified Code
-    """
-    # ---------------------------------------------------------------------------------------------------------------------- #
-    assemble_path = "./Assemble/" + elf_name + "_text.txt"
-    with open(modified_disassemble_path, 'r') as f:
-        disassembled_code = f.read()
+                modified_index_instrs[i] = "bl #0x401a50"
 
-    modified_code = assemble(disassembled_code, assemble_path)
-    # ---------------------------------------------------------------------------------------------------------------------- #
+    for index, instr in modified_index_instrs.items():
+        modified_index_instrs[index] = assemble(instr)
+    
+    for index, code in modified_index_instrs.items():
+        start_index = index * 4
+        end_index = index * 4 + 4
+    
+        original_code = original_code[:start_index] + code + original_code[end_index:]
+
+    modified_disassemble_path = "./Disassemble/modified_" + elf_name + ".s"
+    disassemble(original_code, modified_disassemble_path)
+
 
     with open(elf_path, 'r+b') as f:
-    # 定位到.text段的起始偏移量
         f.seek(text_offset)
-        f.write(modified_code[:text_size])
+        f.write(original_code[:text_size])
+
+    # ---------------------------------------------------------------------------------------------------------------------- #
+    
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
