@@ -112,7 +112,7 @@ def binary_rewrite(elf_path):
     instrs = []
     with open(disassemble_path, "r") as disassemble_f:
         instrs = disassemble_f.readlines()
-    
+    # 随便设置的patch规则，后续会专门设计    
     for i in range(len(instrs)):
         if i > 0:
             if instrs[i] == 'stp x29, x30, [sp, #-0x20]!\n' and instrs[i-1] == "ret \n":
