@@ -109,8 +109,6 @@ def binary_rewrite(elf_path):
     with open(disassemble_path, "r") as disassemble_f:
         for instr in disassemble_f:
             print(instr)
-    # hh
-
     # ---------------------------------------------------------------------------------------------------------------------- #
     
 
