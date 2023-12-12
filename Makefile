@@ -1,7 +1,7 @@
 CC = gcc
 
 # CFLAGS += -mbranch-protection=standard
-CFLAGS += -march=armv8.3-a -mbranch-protection=pac-ret
+CFLAGS += -march=armv8.3-a -mbranch-protection=pac-ret -no-pie -fno-PIE
 BINARY_DIR = BinaryFile/
 
 SOURCE_DIR = SourceFile/
@@ -12,7 +12,7 @@ PROJ := $(BINARY_DIR)test_pac
 PROJ_NOPAC := $(BINARY_DIR)test_nopac
 # $(CC) $(CFLAGS) -o $(PROJ) $(SOURCE_FILE)
 all: $(SOURCE_FILE)
-	$(CC) -o $(PROJ_NOPAC) $(SOURCE_FILE)
+	$(CC)  -no-pie -fno-PIE -o $(PROJ_NOPAC) $(SOURCE_FILE)
 
 # python3 main.py $(BINARY_DIR)test_pac
 main: main.py
