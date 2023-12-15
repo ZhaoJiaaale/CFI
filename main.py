@@ -9,6 +9,10 @@ from utils import *
 def add_section(elf_path):
     elf = lief.parse(elf_path)
 
+    target_segment = elf.segments[2]
+    target_segment.virtual_size = 0x900
+    target_segment.physical_size = 0x900
+
     new_section = lief.ELF.Section()
     new_section.name = ".trampoline"
     # fd7bbea9 c0035fd6 
@@ -16,8 +20,15 @@ def add_section(elf_path):
     new_section.type = lief.ELF.SECTION_TYPES.PROGBITS
     new_section.flags = lief.ELF.SECTION_FLAGS.ALLOC | lief.ELF.SECTION_FLAGS.EXECINSTR
     new_section.alignment = 0x40
+    new_section.size = 0x8
 
-    # new_section.virtual_address = 0x20000
+    new_section.virtual_address = 0x40073c# target_segment.virtual_address + target_segment.virtual_size + 0x4
+    
+    new_section.offset = 0x40073c# target_segment.file_offset + target_segment.physical_size + 0x4
+
+    # Adjust the segment's size to include the new section
+    target_segment.physical_size += len(new_section.content)
+    target_segment.virtual_size += len(new_section.content)
 
     elf.add(new_section)
     elf.write(elf_path)
@@ -42,21 +53,14 @@ def disassemble(code, disassemble_path):
 
     disassembled_code = ""
     for i in md.disasm(code, 0x1000):
-        # machine_code = ' '.join(f'{byte:02x}' for byte in i.bytes)
-        # instr = f"0x{i.address:08x}:\t{machine_code}\t\t\t{i.mnemonic}\t{i.op_str}\n"
-        # f.write(instr)
         disassembled_code += f"{i.mnemonic} {i.op_str}\n"
+        
     with open(disassemble_path, "w+") as f:
         f.write(disassembled_code)
 
 def assemble(asm_code):
     ks = Ks(KS_ARCH_ARM64, KS_MODE_LITTLE_ENDIAN)
     encoding, count = ks.asm(asm_code)
-
-    # formatted_text = format_code(bytes(encoding))
-    
-    # with open(assemble_path, "w+") as f:
-    #     f.write(formatted_text)
 
     return bytes(encoding)
 
@@ -116,7 +120,7 @@ def binary_rewrite(elf_path):
     for i in range(len(instrs)):
         if i > 0:
             if instrs[i] == 'stp x29, x30, [sp, #-0x20]!\n' and instrs[i-1] == "ret \n":
-                modified_index_instrs[i] = "bl #0x401a50"
+                modified_index_instrs[i] = "bl #0x18c"
 
     for index, instr in modified_index_instrs.items():
         modified_index_instrs[index] = assemble(instr)

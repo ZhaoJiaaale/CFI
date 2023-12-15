@@ -74,7 +74,7 @@ ldr w0, [sp, #8]
 add w0, w1, w0
 add sp, sp, #0x10
 ret 
-bl #0x402b80
+bl #0x12bc
 mov x29, sp
 mov w0, #1
 str w0, [sp, #0x14]
