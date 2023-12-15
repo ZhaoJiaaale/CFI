@@ -7,30 +7,87 @@ import lief
 from utils import *
 
 def add_section(elf_path):
-    elf = lief.parse(elf_path)
+    # elf = lief.parse(elf_path)
 
+    # target_segment = elf.segments[2]
+    # target_segment.virtual_size = 0x900
+    # target_segment.physical_size = 0x900
+
+    # new_section = lief.ELF.Section()
+    # new_section.name = ".trampoline"
+    # # fd7bbea9 c0035fd6 
+    # new_section.content = [0xfd, 0x7b, 0xbe, 0xa9, 0xc0, 0x03, 0x5f, 0xd6]
+    # new_section.type = lief.ELF.SECTION_TYPES.PROGBITS
+    # new_section.flags = lief.ELF.SECTION_FLAGS.ALLOC | lief.ELF.SECTION_FLAGS.EXECINSTR
+    # new_section.alignment = 0x40
+    # new_section.size = 0x8
+
+    # new_section.virtual_address = 0x40073c# target_segment.virtual_address + target_segment.virtual_size + 0x4
+    
+    # new_section.offset = 0x40073c# target_segment.file_offset + target_segment.physical_size + 0x4
+
+    # # Adjust the segment's size to include the new section
+    # target_segment.physical_size += len(new_section.content)
+    # target_segment.virtual_size += len(new_section.content)
+
+    # elf.add(new_section)
+    # elf.write(elf_path)
+
+    new_section_name = '.trampoline'
+    # 9cffff17
+    new_section_content = b'\xfd\x7b\xbe\xa9\xc0\x03\x5f\xd6'
+    new_section_offset = 0x740
+    new_section_size = 0x8
+    new_section_type = 1    # PROGBITS
+    new_section_flags = 6   # ALLOC + EXECINSTR
+    new_section_addr = 0x00400740
+    
+    with open(elf_path, 'rb') as f:
+        elf_data = bytearray(f.read())
+    elf_data[new_section_offset: new_section_offset + new_section_size] = new_section_content
+
+    e_shoff, e_shentsize, e_shnum = read_elf_header(elf_data)
+
+    shstrtab_index = struct.unpack_from('<H', elf_data, 0x3e)[0]  # uint16_t string_table 
+    shstrtab_offset = struct.unpack_from('<Q', elf_data, e_shoff + shstrtab_index * e_shentsize + 0x18)[0]
+    shstrtab_size = struct.unpack_from('<Q', elf_data, e_shoff + shstrtab_index * e_shentsize + 0x20)[0]
+
+    print(hex(shstrtab_offset))
+    print(hex(shstrtab_size))
+    
+    new_section_name_offset = shstrtab_size
+    elf_data[shstrtab_offset + shstrtab_size: shstrtab_offset + shstrtab_size + len(new_section_name) + 1] = bytes(new_section_name + '\x00', 'utf-8')
+    elf_data[e_shoff + shstrtab_index * e_shentsize + 0x20 : e_shoff + shstrtab_index * e_shentsize + 0x28] = struct.pack('<Q', shstrtab_size + len(new_section_name) + 1)
+    
+    print(hex(shstrtab_offset + shstrtab_size))
+    print(hex(shstrtab_offset + shstrtab_size + len(new_section_name) + 1))
+    print(bytes(new_section_name + '\x00', 'utf-8'))
+
+    # New Section Header Entry
+    new_section_header = struct.pack(
+        '<IIQQQQIIQQ',
+        new_section_name_offset,  # 名称偏移（暂时为 0，稍后更新）
+        new_section_type,
+        new_section_flags,
+        new_section_addr,
+        new_section_offset,
+        new_section_size,
+        0,  # 链接到其他节的索引（如果需要）
+        0,  # 附加信息
+        4,  # alignment
+        0   # 固定条目大小
+    )
+
+    elf_data[e_shoff + e_shentsize * e_shnum : e_shoff + e_shentsize * (e_shnum + 1)] = new_section_header
+    elf_data[0x3c:0x3e] = struct.pack('<H', e_shnum + 1)
+    
+    with open(elf_path, 'wb') as f:
+        f.write(elf_data)
+    
+    elf = lief.parse(elf_path)
     target_segment = elf.segments[2]
     target_segment.virtual_size = 0x900
     target_segment.physical_size = 0x900
-
-    new_section = lief.ELF.Section()
-    new_section.name = ".trampoline"
-    # fd7bbea9 c0035fd6 
-    new_section.content = [0xfd, 0x7b, 0xbe, 0xa9, 0xc0, 0x03, 0x5f, 0xd6]
-    new_section.type = lief.ELF.SECTION_TYPES.PROGBITS
-    new_section.flags = lief.ELF.SECTION_FLAGS.ALLOC | lief.ELF.SECTION_FLAGS.EXECINSTR
-    new_section.alignment = 0x40
-    new_section.size = 0x8
-
-    new_section.virtual_address = 0x40073c# target_segment.virtual_address + target_segment.virtual_size + 0x4
-    
-    new_section.offset = 0x40073c# target_segment.file_offset + target_segment.physical_size + 0x4
-
-    # Adjust the segment's size to include the new section
-    target_segment.physical_size += len(new_section.content)
-    target_segment.virtual_size += len(new_section.content)
-
-    elf.add(new_section)
     elf.write(elf_path)
 
 def read_elf(file_path):
@@ -120,7 +177,7 @@ def binary_rewrite(elf_path):
     for i in range(len(instrs)):
         if i > 0:
             if instrs[i] == 'stp x29, x30, [sp, #-0x20]!\n' and instrs[i-1] == "ret \n":
-                modified_index_instrs[i] = "bl #0x18c"
+                modified_index_instrs[i] = "b #0x190"
 
     for index, instr in modified_index_instrs.items():
         modified_index_instrs[index] = assemble(instr)

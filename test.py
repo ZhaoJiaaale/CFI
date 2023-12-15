@@ -158,3 +158,6 @@ elf_data[0x3c:0x3e] = struct.pack('<H', e_shnum + 1)
 # 写回 ELF 文件
 with open(new_elf_path, 'wb') as f:
     f.write(elf_data)
+
+print(b'\x00'*4)
+print(type(b'\x00'*4))
