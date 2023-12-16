@@ -18,6 +18,11 @@ all: $(SOURCE_FILE)
 main: main.py
 	python3 main.py $(BINARY_DIR)test_nopac
 
+run: ./BinaryFile/test_nopac
+	./BinaryFile/test_nopac
+
+gdb: ./BinaryFile/test_nopac
+	gdb ./BinaryFile/test_nopac
 
 COMPILE_PROJ = ./StandardAsm/test_pac.s
 COMPILE_PROJ_NOPAC = ./StandardAsm/test_nopac.s

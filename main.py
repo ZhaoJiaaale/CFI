@@ -7,40 +7,15 @@ import lief
 from utils import *
 
 def add_section(elf_path):
-    # elf = lief.parse(elf_path)
-
-    # target_segment = elf.segments[2]
-    # target_segment.virtual_size = 0x900
-    # target_segment.physical_size = 0x900
-
-    # new_section = lief.ELF.Section()
-    # new_section.name = ".trampoline"
-    # # fd7bbea9 c0035fd6 
-    # new_section.content = [0xfd, 0x7b, 0xbe, 0xa9, 0xc0, 0x03, 0x5f, 0xd6]
-    # new_section.type = lief.ELF.SECTION_TYPES.PROGBITS
-    # new_section.flags = lief.ELF.SECTION_FLAGS.ALLOC | lief.ELF.SECTION_FLAGS.EXECINSTR
-    # new_section.alignment = 0x40
-    # new_section.size = 0x8
-
-    # new_section.virtual_address = 0x40073c# target_segment.virtual_address + target_segment.virtual_size + 0x4
-    
-    # new_section.offset = 0x40073c# target_segment.file_offset + target_segment.physical_size + 0x4
-
-    # # Adjust the segment's size to include the new section
-    # target_segment.physical_size += len(new_section.content)
-    # target_segment.virtual_size += len(new_section.content)
-
-    # elf.add(new_section)
-    # elf.write(elf_path)
-
     new_section_name = '.trampoline'
     # fd7bbea9 fd030091 20008052 20011fd6
-    new_section_content = b'\xfd\x7b\xbe\xa9\xfd\x03\x00\x91\x20\x00\x80\x52\x20\x01\x1f\xd6'
-    new_section_offset = 0x740
-    new_section_size = 0x10
+    # 0x98 0xff 0xff 0x1
+    new_section_content = b'\xfd\x7b\xbe\xa9\x98\xff\xff\x17'
+    new_section_offset = 0x790
+    new_section_size = 0x8
     new_section_type = 1    # PROGBITS
     new_section_flags = 6   # ALLOC + EXECINSTR
-    new_section_addr = 0x00400740
+    new_section_addr = 0x00400790
     
     with open(elf_path, 'rb') as f:
         elf_data = bytearray(f.read())
@@ -177,9 +152,9 @@ def binary_rewrite(elf_path):
     for i in range(len(instrs)):
         if i > 0:
             if instrs[i] == 'stp x29, x30, [sp, #-0x20]!\n' and instrs[i-1] == "ret \n":
-                modified_index_instrs[i] = "adrp x9, 0x400000"      # fd7bbea9
-                modified_index_instrs[i+1] = "add x9, x9, #0x5bc"   # fd030091
-                modified_index_instrs[i+2] = "b 0x188"              # 20008052
+                # modified_index_instrs[i] = "adrp x9, #0x1000"      # fd7bbea9
+                # modified_index_instrs[i+1] = "add x9, x9, #-0xa44" 
+                modified_index_instrs[i] = "b 0x1a0"           # 20008052
 
     for index, instr in modified_index_instrs.items():
         modified_index_instrs[index] = assemble(instr)

@@ -176,7 +176,7 @@ def assemble(asm_code):
 
     return encoding
 
-asm_code = "b 0x4005bc"
+asm_code = "b -0x1a0"
 
 for i in assemble(asm_code):
     print(hex(i))
